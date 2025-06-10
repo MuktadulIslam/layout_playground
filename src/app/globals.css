@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+canvas {
+  height: 100dvb;
+  width: 100vw;
+}
