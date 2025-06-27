@@ -1,9 +1,11 @@
-import { useThree } from "@react-three/fiber"
+import { useFrame, useThree } from "@react-three/fiber"
 import { PlacedObject } from "./types"
-import { useEffect, useRef } from "react"
+import { Suspense, useEffect, useRef } from "react"
 import * as THREE from 'three'
 import DraggableObject from "./DraggableObject"
 import React from "react"
+import HtmlLoader from "./SuspenseLoader"
+
 
 interface PlayGroundProps {
     objects: PlacedObject[],
@@ -17,7 +19,7 @@ interface PlayGroundProps {
 }
 
 export default function PlayGround({ objects, setObjects, currentObject, setCurrentObject, setOrbitEnabled, roomWidth, roomLength, children }: PlayGroundProps) {
-    const { camera, raycaster, gl } = useThree()
+    const { camera, raycaster, scene, gl } = useThree()
     const groundRef = useRef<THREE.Mesh>(null)
 
     // Handle drop events
@@ -71,8 +73,9 @@ export default function PlayGround({ objects, setObjects, currentObject, setCurr
         <>
             {/* Render dropped objects */}
             {objects.map(obj => (
+                <Suspense fallback={<HtmlLoader />} key={obj.id}>
                 <DraggableObject
-                    key={obj.id}
+                    // key={obj.id}
                     position={obj.position}
                     groundSize={{
                         width: roomLength,
@@ -82,6 +85,7 @@ export default function PlayGround({ objects, setObjects, currentObject, setCurr
                 >
                     {React.cloneElement(obj.component as React.ReactElement, { key: obj.id })}
                 </DraggableObject>
+                </Suspense>
             ))}
             {children}
             

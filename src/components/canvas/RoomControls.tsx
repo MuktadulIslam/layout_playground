@@ -34,8 +34,8 @@ export default function RoomControls({
     };
 
     return (
-        <div className="z-50 absolute top-5 right-5 text-white font-sans text-sm bg-gray-900/90 bg-opacity-80 p-5 rounded-lg min-w-[250px]">
-            <h3 className="m-0 mb-4 text-white">Room Controls</h3>
+        <div className="z-50 absolute top-5 right-5 text-white font-sans text-sm bg-gray-900/90 bg-opacity-80 p-5 rounded-lg w-[270px]">
+            <h3 className="m-0 mb-4 text-white text-lg font-bold">Room Controls</h3>
 
             <div className="mb-4">
                 <label className="block mb-1">
@@ -94,6 +94,7 @@ export default function RoomControls({
                 <div className="text-xs opacity-80">
                     <div>⚙️ Scroll to zoom</div>
                     <div>🔧 Ctrl+Shift+Z to toggle controls</div>
+                    <div>🔧 Ctrl+Shift+F to freeze the OrbitControls</div>
                 </div>
             </div>
         </div>

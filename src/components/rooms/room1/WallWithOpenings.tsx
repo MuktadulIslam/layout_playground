@@ -1,6 +1,6 @@
 import React from 'react';
 import { Plane } from '@react-three/drei';
-import { WallWithOpeningsProps, WallType } from './types';
+import { WallWithOpeningsProps, Door, Window, WallType } from './types';
 import WindowComponent from './Window';
 import DoorComponent from './Door';
 import DecorationComponent from './Decoration';
