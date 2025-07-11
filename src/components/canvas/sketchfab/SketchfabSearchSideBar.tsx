@@ -12,6 +12,7 @@ import { SketchfabProvider } from "./context/SketchfabProvider";
 import { useSketchfabAuth } from "./context/SketchfabAuthContext";
 import { useSketchfabDownload } from "./context/SketchfabDownloadContext";
 import { NotificationManager } from "./Notification";
+import SketchfabAuthHeader from "./SketchfabAuthHeader";
 
 interface SketchfabSearchSideBarProps {
     show: boolean;
@@ -181,6 +182,9 @@ function SketchfabSearch({ show, setShow, onAddModelToSidebar, existingModelUids
             )}
 
             <div className="w-full h-full overflow-auto">
+                {!loading && authenticated &&
+                    <SketchfabAuthHeader onNotify={addNotification} />
+                }
                 <SidebarHeader setShow={setShow} />
                 {loading ? (
                     <div className="h-full w-full flex flex-col justify-center items-center text-gray-800">
