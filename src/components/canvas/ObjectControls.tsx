@@ -3,18 +3,10 @@ import { Mesh } from 'three';
 import { SelectableObject } from './types';
 import * as THREE from 'three'
 import { FaRotateLeft, FaRotateRight } from "react-icons/fa6";
+import { useMeshContext } from './MeshContext';
 
-interface ObjectControlsProps {
-  object: SelectableObject;
-  onClose: () => void;
-  onDelete?: () => void;
-}
-
-export default function ObjectControls({
-  object,
-  onClose,
-  onDelete
-}: ObjectControlsProps) {
+export default function ObjectControls() {
+  const { selectedObject, selectedObjectId, isObjectControlsVisible, removeObject, clearObject, fixedRingRadius } = useMeshContext();
   const [scale, setScale] = useState<[number, number, number]>([1, 1, 1]);
   const [rotation, setRotation] = useState<[number, number, number]>([0, 0, 0]);
   const [uniformScale, setUniformScale] = useState<number>(1);
@@ -24,12 +16,12 @@ export default function ObjectControls({
   const MIN_SCALE = 0.1;
   const rotationStepSize = 10
 
-  // Initialize state from object properties
+  // Initialize state from selectedObject properties
   useEffect(() => {
-    if (object) {
-      const objScale: [number, number, number] = [object.scale.x, object.scale.y, object.scale.z];
+    if (selectedObject) {
+      const objScale: [number, number, number] = [selectedObject.scale.x, selectedObject.scale.y, selectedObject.scale.z];
       setScale(objScale);
-      setRotation([object.rotation.x, object.rotation.y, object.rotation.z]);
+      setRotation([selectedObject.rotation.x, selectedObject.rotation.y, selectedObject.rotation.z]);
 
       // Check if scale is uniform and set uniform scale value
       if (objScale[0] === objScale[1] && objScale[1] === objScale[2]) {
@@ -38,28 +30,32 @@ export default function ObjectControls({
         setUniformScale(1); // Default when not uniform
       }
     }
-  }, [object]);
+  }, [selectedObject]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.altKey && event.key.toLowerCase() === 'c') {
         event.preventDefault();
-        onClose();
+        handleClose();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, []);
+
+  const handleClose = () => {
+    clearObject(); // This will handle both Three.js removal and state update
+  };
 
   const updateObjectPosition = () => {
-    if (!object) return;
+    if (!selectedObject) return;
 
-    const box = new THREE.Box3().setFromObject(object)
+    const box = new THREE.Box3().setFromObject(selectedObject)
     const size = new THREE.Vector3()
     box.getSize(size)
     const minEdge = box.min.clone();
-    object.position.y -= minEdge.y;
+    selectedObject.position.y -= minEdge.y;
   }
 
   const handleScaleChange = (axis: number, value: number) => {
@@ -68,12 +64,15 @@ export default function ObjectControls({
     newScale[axis] = clampedValue;
     setScale(newScale);
 
-    // Apply to object immediately
-    if (object) {
-      if (axis === 0) object.scale.x = clampedValue;
-      else if (axis === 1) object.scale.y = clampedValue;
-      else if (axis === 2) object.scale.z = clampedValue;
+    // Apply to selectedObject immediately
+    if (selectedObject) {
+      if (axis === 0) selectedObject.scale.x = clampedValue;
+      else if (axis === 1) selectedObject.scale.y = clampedValue;
+      else if (axis === 2) selectedObject.scale.z = clampedValue;
       updateObjectPosition();
+      if (fixedRingRadius) {
+        fixedRingRadius();
+      }
     }
   };
 
@@ -91,12 +90,15 @@ export default function ObjectControls({
     newRotation[axis] = radians;
     setRotation(newRotation);
 
-    // Apply to object immediately
-    if (object) {
-      if (axis === 0) object.rotation.x = radians;
-      else if (axis === 1) object.rotation.y = radians;
-      else if (axis === 2) object.rotation.z = radians;
+    // Apply to selectedObject immediately
+    if (selectedObject) {
+      if (axis === 0) selectedObject.rotation.x = radians;
+      else if (axis === 1) selectedObject.rotation.y = radians;
+      else if (axis === 2) selectedObject.rotation.z = radians;
       updateObjectPosition();
+      if (fixedRingRadius) {
+        fixedRingRadius();
+      }
     }
   };
 
@@ -115,10 +117,14 @@ export default function ObjectControls({
     setScale(newScale);
     setUniformScale(clampedValue);
 
-    // Apply to object immediately
-    if (object) {
-      object.scale.set(clampedValue, clampedValue, clampedValue);
+    // Apply to selectedObject immediately
+    if (selectedObject) {
+      selectedObject.scale.set(clampedValue, clampedValue, clampedValue);
       updateObjectPosition();
+      if (fixedRingRadius) {
+        fixedRingRadius();
+      }
+
     }
   };
 
@@ -130,32 +136,39 @@ export default function ObjectControls({
     setRotation(resetRotation);
     setUniformScale(1);
 
-    // Apply to object immediately
-    if (object) {
-      object.scale.set(1, 1, 1);
-      object.rotation.set(0, 0, 0);
+    // Apply to selectedObject immediately
+    if (selectedObject) {
+      selectedObject.scale.set(1, 1, 1);
+      selectedObject.rotation.set(0, 0, 0);
       updateObjectPosition();
+      if (fixedRingRadius) {
+        fixedRingRadius();
+      }
     }
   };
 
   const handleDelete = () => {
-    if (object && object.parent) {
-      object.parent.remove(object);
+    if (selectedObjectId && selectedObject) {
+      // Remove from Three.js scene
+      if (selectedObject.parent) {
+        selectedObject.parent.remove(selectedObject);
 
-      // Dispose of resources if it's a mesh or group containing meshes
-      object.traverse((child) => {
-        if (child instanceof Mesh) {
-          child.geometry.dispose();
-          if (Array.isArray(child.material)) {
-            child.material.forEach(material => material.dispose());
-          } else {
-            child.material.dispose();
+        // Dispose of resources
+        selectedObject.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            child.geometry.dispose();
+            if (Array.isArray(child.material)) {
+              child.material.forEach(material => material.dispose());
+            } else {
+              child.material.dispose();
+            }
           }
-        }
-      });
+        });
+      }
+
+      // Remove from objects array (this will also clear selection)
+      removeObject(selectedObjectId);
     }
-    onDelete?.();
-    onClose();
   };
 
   return (
@@ -163,7 +176,7 @@ export default function ObjectControls({
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-bold">Object Controls</h3>
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="text-gray-400 hover:text-white transition-colors text-xl font-bold"
         >
           ×

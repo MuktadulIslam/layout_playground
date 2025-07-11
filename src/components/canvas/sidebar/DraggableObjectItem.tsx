@@ -3,7 +3,7 @@ import { DraggableObjectData } from "./types";
 interface DraggableObjectItemProps {
     object: DraggableObjectData;
     groupColor: string;
-    onDragStart: (component: React.ReactNode, dragData: string) => void;
+    onDragStart: (component: React.ReactNode) => void;
 }
 
 export default function DraggableObjectItem({ object, groupColor, onDragStart }: DraggableObjectItemProps) {
@@ -13,7 +13,7 @@ export default function DraggableObjectItem({ object, groupColor, onDragStart }:
             draggable
             onDragStart={(e) => {
                 e.dataTransfer.setData('text/plain', object.id)
-                onDragStart(object.component, object.id)
+                onDragStart(object.component)
             }}
         >
             {/* Drag indicator */}

@@ -8,24 +8,43 @@ interface Dynamic3DModelProps {
     fileType: 'glb' | 'fbx';
 }
 
-export default function Dynamic3DModel({ url, fileType }: Dynamic3DModelProps) {
+// Separate component for GLB files
+function GLBModel({ url }: { url: string }) {
     const gltf = useGLTF(url);
-    const fbx = useFBX(url);
 
     const clonedScene = useMemo(() => {
-        if (fileType === 'glb' && gltf) {
-            return gltf.scene.clone();
-        } else if (fileType === 'fbx' && fbx) {
-            return fbx.clone();
-        }
-        return null;
-    }, [gltf, fbx, fileType]);
-
-    if (!clonedScene) return null;
+        return gltf.scene.clone();
+    }, [gltf]);
 
     return (
         <ScaledModelWrapper>
             <primitive object={clonedScene} />
         </ScaledModelWrapper>
     );
+}
+
+// Separate component for FBX files
+function FBXModel({ url }: { url: string }) {
+    const fbx = useFBX(url);
+
+    const clonedScene = useMemo(() => {
+        return fbx.clone();
+    }, [fbx]);
+
+    return (
+        <ScaledModelWrapper>
+            <primitive object={clonedScene} />
+        </ScaledModelWrapper>
+    );
+}
+
+// Main component that conditionally renders the appropriate model component
+export default function Dynamic3DModel({ url, fileType }: Dynamic3DModelProps) {
+    if (fileType === 'glb') {
+        return <GLBModel url={url} />;
+    } else if (fileType === 'fbx') {
+        return <FBXModel url={url} />;
+    }
+
+    return null;
 }

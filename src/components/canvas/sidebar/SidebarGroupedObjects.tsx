@@ -4,7 +4,7 @@ import { DraggableObjectGroup } from "./types";
 
 interface SidebarGroupedObjectsProps {
     objectGroups: DraggableObjectGroup[];
-    onDragStart: (component: React.ReactNode, dragData: string) => void;
+    onDragStart: (component: React.ReactNode) => void;
 }
 
 export default function SidebarGroupedObjects({ objectGroups, onDragStart }: SidebarGroupedObjectsProps) {
