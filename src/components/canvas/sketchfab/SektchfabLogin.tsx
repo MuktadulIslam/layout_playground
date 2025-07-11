@@ -1,10 +1,11 @@
+// src/components/canvas/sketchfab/SektchfabLogin.tsx
 import { FaBoxesStacked } from "react-icons/fa6";
 import { PiDownloadSimpleBold } from "react-icons/pi";
 import { SiAdobecreativecloud } from "react-icons/si";
-import { useAuth } from "./store/hooks/useAuth";
+import { useSketchfabAuth } from "./context/SketchfabAuthContext";
 
 export default function SketchfabLogin() {
-    const { checkAuth } = useAuth();
+    const { checkAuth } = useSketchfabAuth();
 
     return <>
         <div className="w-full pt-32 px-4">
@@ -33,7 +34,7 @@ export default function SketchfabLogin() {
                             }, 1000);
                         }
                     }}
-                    className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-lg"
+                    className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-lg cursor-pointer"
                 >
                     Login With Your Sketchfab Account
                 </a>

@@ -1,15 +1,16 @@
+// src/components/canvas/sketchfab/SketchfabSearchSideBar.tsx
 'use client'
 
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import SidebarHeader from "./Header";
 import SearchBarUtils from "./searchBarUtils";
 import ThreeDModelCard from "./ThreeDModelCard";
 import { SketchfabModel } from "./types";
 import ModelViewer from "./ModelViewer";
 import SketchfabLogin from "./SektchfabLogin";
-import { SketchfabReduxProvider } from "./store/SketchfabReduxProvider";
-import { useAuth } from "./store/hooks/useAuth";
-import { useDownload } from "./store/hooks/useDownload";
+import { SketchfabProvider } from "./context/SketchfabProvider";
+import { useSketchfabAuth } from "./context/SketchfabAuthContext";
+import { useSketchfabDownload } from "./context/SketchfabDownloadContext";
 import { NotificationManager } from "./Notification";
 
 interface SketchfabSearchSideBarProps {
@@ -22,14 +23,14 @@ interface SketchfabSearchSideBarProps {
         fileType: 'glb';
         model: SketchfabModel;
     }) => void;
-    existingModelUids?: string[]; // New prop to track existing model UIDs
+    existingModelUids?: string[];
 }
 
 export default function SketchfabSearchSideBar({ show, setShow, onAddModelToSidebar, existingModelUids = [] }: SketchfabSearchSideBarProps) {
     return (
-        <SketchfabReduxProvider>
+        <SketchfabProvider>
             <SketchfabSearch show={show} setShow={setShow} onAddModelToSidebar={onAddModelToSidebar} existingModelUids={existingModelUids} />
-        </SketchfabReduxProvider>
+        </SketchfabProvider>
     );
 }
 
@@ -46,32 +47,34 @@ function SketchfabSearch({ show, setShow, onAddModelToSidebar, existingModelUids
     const [addingToSidebarId, setAddingToSidebarId] = useState<string | null>(null);
     const [addToSidebarProgress, setAddToSidebarProgress] = useState<number>(0);
     const [notifications, setNotifications] = useState<NotificationData[]>([]);
-    const { models, SearchBar, ModelLoadingUtils } = SearchBarUtils();
-    const { authenticated, loading } = useAuth();
-    const { downloadGLB, getDownloadOptions } = useDownload();
 
-    const addNotification = (message: string, type: 'success' | 'error' | 'info' = 'info', duration = 3000) => {
+    const { models, SearchBar, ModelLoadingUtils } = SearchBarUtils();
+    const { authenticated, loading } = useSketchfabAuth();
+    const { downloadGLB, getDownloadOptions } = useSketchfabDownload();
+
+    const addNotification = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info', duration = 3000) => {
         const id = Date.now().toString();
         setNotifications(prev => [...prev, { id, message, type, duration }]);
-    };
+    }, []);
 
-    const removeNotification = (id: string) => {
+    const removeNotification = useCallback((id: string) => {
         setNotifications(prev => prev.filter(n => n.id !== id));
-    };
+    }, []);
 
-    const handleDownloadModel = async (model: SketchfabModel) => {
+    const handleDownloadModel = useCallback(async (model: SketchfabModel) => {
         try {
             setDownloadingModelId(model.uid);
             const urls = await getDownloadOptions(model.uid);
             downloadGLB(urls.glb.url, model.name);
         } catch (error) {
             console.error('Download failed:', error);
+            addNotification('Download failed', 'error');
         } finally {
             setDownloadingModelId(null);
         }
-    };
+    }, [getDownloadOptions, downloadGLB, addNotification]);
 
-    const handleAddToSidebar = async (model: SketchfabModel) => {
+    const handleAddToSidebar = useCallback(async (model: SketchfabModel) => {
         // Check if model is already in sidebar
         if (existingModelUids.includes(model.uid)) {
             addNotification(`"${model.name}" is already in the sidebar!`, 'info', 3000);
@@ -87,7 +90,6 @@ function SketchfabSearch({ show, setShow, onAddModelToSidebar, existingModelUids
             setAddingToSidebarId(model.uid);
             setAddToSidebarProgress(0);
 
-            // Step 1: Get download options (20% progress)
             setAddToSidebarProgress(20);
             const downloadOptions = await getDownloadOptions(model.uid);
 
@@ -95,7 +97,6 @@ function SketchfabSearch({ show, setShow, onAddModelToSidebar, existingModelUids
                 throw new Error('GLB format not available for this model');
             }
 
-            // Step 2: Download the GLB file (40% progress)
             setAddToSidebarProgress(40);
             const response = await fetch(downloadOptions.glb.url);
 
@@ -103,12 +104,10 @@ function SketchfabSearch({ show, setShow, onAddModelToSidebar, existingModelUids
                 throw new Error('Failed to download GLB file');
             }
 
-            // Step 3: Convert to blob and create object URL (60% progress)
             setAddToSidebarProgress(60);
             const blob = await response.blob();
             const objectUrl = URL.createObjectURL(blob);
 
-            // Step 4: Prepare model data (80% progress)
             setAddToSidebarProgress(80);
             const modelData = {
                 id: `sketchfab-${model.uid}-${Date.now()}`,
@@ -118,14 +117,11 @@ function SketchfabSearch({ show, setShow, onAddModelToSidebar, existingModelUids
                 model: model
             };
 
-            // Step 5: Add to sidebar (100% progress)
             setAddToSidebarProgress(100);
             onAddModelToSidebar(modelData);
 
-            // Show success notification
             addNotification(`✨ "${model.name}" added to sidebar!`, 'success', 4000);
 
-            // Small delay to show 100% completion before hiding
             await new Promise(resolve => setTimeout(resolve, 500));
 
         } catch (error) {
@@ -136,30 +132,54 @@ function SketchfabSearch({ show, setShow, onAddModelToSidebar, existingModelUids
             setAddingToSidebarId(null);
             setAddToSidebarProgress(0);
         }
-    };
+    }, [existingModelUids, onAddModelToSidebar, getDownloadOptions, addNotification]);
+
+    // Memoize the models grid to prevent unnecessary re-renders
+    const modelsGrid = useMemo(() => {
+        if (models.length === 0) return null;
+
+        return (
+            <div className="grid grid-cols-3 gap-4 p-2">
+                {models.map((model, index) => (
+                    <ThreeDModelCard
+                        key={`${model.uid}-${index}`}
+                        model={model}
+                        setSelectedModel={setSelectedModel}
+                        handleDownloadModel={handleDownloadModel}
+                        handleAddToSidebar={handleAddToSidebar}
+                        downloadingModelId={downloadingModelId}
+                        addingToSidebarId={addingToSidebarId}
+                        addToSidebarProgress={addToSidebarProgress}
+                        isAlreadyInSidebar={existingModelUids.includes(model.uid)}
+                    />
+                ))}
+            </div>
+        );
+    }, [models, handleDownloadModel, handleAddToSidebar, downloadingModelId, addingToSidebarId, addToSidebarProgress, existingModelUids]);
+
+    const handleCloseViewer = useCallback(() => {
+        setSelectedModel(null);
+    }, []);
 
     return (
         <div className={`h-screen w-3xl ${show ? '' : '-translate-x-full'} transition-all duration-300 absolute left-0 top-0 bottom-0 z-50 backdrop-blur-sm bg-gradient-to-br from-white/40 to-sky-200/20 border-r-2 border-gray-400`}>
-            {/* Notifications */}
             <NotificationManager
                 notifications={notifications}
                 removeNotification={removeNotification}
             />
 
-            {/* 3D Model Viewer Modal */}
             {selectedModel != null && (
                 <ModelViewer
                     model={selectedModel}
                     handleDownloadModel={handleDownloadModel}
                     handleAddToSidebar={handleAddToSidebar}
-                    closeViewer={() => {
-                        setSelectedModel(null);
-                    }}
+                    closeViewer={handleCloseViewer}
                     addingToSidebarId={addingToSidebarId}
                     addToSidebarProgress={addToSidebarProgress}
                     isAlreadyInSidebar={existingModelUids.includes(selectedModel.uid)}
                 />
             )}
+
             <div className="w-full h-full overflow-auto">
                 <SidebarHeader setShow={setShow} />
                 {loading ? (
@@ -180,23 +200,7 @@ function SketchfabSearch({ show, setShow, onAddModelToSidebar, existingModelUids
                 ) : (
                     <>
                         <SearchBar />
-                        {models.length > 0 && (
-                            <div className="grid grid-cols-3 gap-4 p-2">
-                                {models.map((model, index) => (
-                                    <ThreeDModelCard
-                                        key={index}
-                                        model={model}
-                                        setSelectedModel={setSelectedModel}
-                                        handleDownloadModel={handleDownloadModel}
-                                        handleAddToSidebar={handleAddToSidebar}
-                                        downloadingModelId={downloadingModelId}
-                                        addingToSidebarId={addingToSidebarId}
-                                        addToSidebarProgress={addToSidebarProgress}
-                                        isAlreadyInSidebar={existingModelUids.includes(model.uid)}
-                                    />
-                                ))}
-                            </div>
-                        )}
+                        {modelsGrid}
                         <ModelLoadingUtils />
                     </>
                 )}
